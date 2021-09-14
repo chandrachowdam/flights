@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:batch="http://www.mulesoft.org/schema/mule/batch" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="49f98124-f7d8-4129-9421-4ff0f421c28e" >
+		<http:listener-connection host="localhost" port="8081" />
+	</http:listener-config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="3e734a06-9ddb-4e95-bbe5-a734ffcec325" >
+		<http:request-connection host="mu.learn.mulesoft.com" />
+	</http:request-config>
+	<flow name="restflightsFlow" doc:id="29b83196-30e3-4407-b779-ab8a07e1bc98" >
+		<http:listener doc:name="Listener" doc:id="8a20b526-817a-4ceb-a9c0-59d599d8c7b4" config-ref="HTTP_Listener_config" path="/Flights"/>
+		<http:request method="GET" doc:name="Request" doc:id="8b51d81e-1b60-4544-9f38-b2dea9890c03" config-ref="HTTP_Request_configuration" path="/united/flights"/>
+		<ee:transform doc:name="Transform Message" doc:id="9a6164cb-151b-4ecd-a75f-937e3ee69abf" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload.flights]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="15b1420a-c391-4ec3-8064-5c8aa10650bb" variableName="OriginalPayload"/>
+		<batch:job jobName="restflightsBatch_Job" doc:id="9f6adf03-76aa-4fae-832c-2e032cfe3306" maxFailedRecords="-1">
+			<batch:process-records >
+				<batch:step name="Batch_Step" doc:id="713a3407-124e-4f93-8786-09dc14cbb7cb" acceptExpression='#[payload.destination=="SFO"]'>
+					<ee:transform doc:name="Transform Message" doc:id="ce24846b-1840-45fb-ae12-bd14a43c7349" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload ]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<logger level="INFO" doc:name="Logger" doc:id="8ab4a584-e04d-4d2c-bb1d-49b0bbac38be" message="#[payload]"/>
+					<set-variable value="#[payload]" doc:name="Set Variable" doc:id="53a4b86b-49b5-46ca-8b3c-95330721d800" variableName="step"/>
+				</batch:step>
+				<batch:step name="Batch_Step1" doc:id="81b0f05d-df3a-41ac-b306-c99caefd1426" >
+					<ee:transform doc:name="Transform Message" doc:id="f88cf074-1ad0-4efa-a156-fdb3f0019245" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<logger level="INFO" doc:name="Logger" doc:id="5cb80d06-5ba9-480f-ab73-01af7b567699" message="#[payload]"/>
+					<set-variable value="#[payload]" doc:name="Set Variable" doc:id="023a1b7c-8900-4fef-91b6-25ba9889ec02" variableName="step1"/>
+				</batch:step>
+				<batch:step name="Batch_Step2" doc:id="59292f0e-1fe0-4d7f-ac82-9c904685214d" acceptPolicy="ONLY_FAILURES">
+					<ee:transform doc:name="Transform Message" doc:id="a1873d52-ae0f-4040-a97d-35261cebf78d" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<logger level="INFO" doc:name="Logger" doc:id="02a4afe2-b81e-4908-a97b-aacb8831c561" message="#[payload]"/>
+					<batch:aggregator doc:name="Batch Aggregator" doc:id="19ab16ec-47b6-44fe-9da0-fe8695409983" streaming="true">
+						<ee:transform doc:name="Transform Message" doc:id="e2586229-cbd8-4f60-a084-ef94133f200e" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<logger level="INFO" doc:name="Logger" doc:id="5b609b03-0694-4b79-a755-9d73738afa4f" message="#[payload]"/>
+					</batch:aggregator>
+				</batch:step>
+			</batch:process-records>
+			<batch:on-complete >
+				<logger level="INFO" doc:name="Logger" doc:id="3f82d818-9d45-4854-ac03-34b5e1e1138d" message="original payload in on complete phase::  #[vars.OriginalPayload]"/>
+				<logger level="INFO" doc:name="Logger" doc:id="a057a5a6-a7c9-4090-ac20-0f20b5103f0e" message="on complete logger #[payload]"/>
+				<ee:transform doc:name="Transform Message" doc:id="4f64e1a0-b633-48fa-8327-f6d8f5917b3e" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</batch:on-complete>
+		</batch:job>
+	</flow>
+</mule>
